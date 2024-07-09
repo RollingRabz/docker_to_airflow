@@ -56,26 +56,35 @@ def get_data_from_api():
     url = ""
     response = requests.get(url)
     result_conversion_rate = response.json()
-
+    #converse to pandas
     conversion_rate = pd.DataFrame.from_dict(result_conversion_rate)
+    #reset index 
     conversion_rate = conversion_rate.reset_index().rename(columns={"index":"date"})
-
+    #convert timestamp to date
     conversion_rate['date'] = pd.to_datetime(conversion_rate['date']).dt.date
+    #save as csv file
     conversion_rate.to_csv("/home/airflow/data/conversion_rate_from_api.csv", index=False)
 
 
 def convert_to_thb():
     transaction = pd.read_csv("/home/airflow/data/transaction.csv")
     conversion_rate = pd.read_csv("/home/airflow/data/conversion_rate_from_api.csv")
-
+    # create date column from timestamp
     transaction['date'] = transaction['timestamp']
+    # Convert the timestamp column to date in the transaction and conversion_rate dataframes
     transaction['date'] = pd.to_datetime(transaction['date']).dt.date
     conversion_rate['date'] = pd.to_datetime(conversion_rate['date']).dt.date
+    #join data
     final_df = transaction.merge(conversion_rate, how="left", left_on="date", right_on="date")
+    #Replace "$" with ""
     final_df["Price"] = final_df.apply(lambda x: x["Price"].replace("$",""), axis=1)
+    #change data type to float
     final_df["Price"] = final_df["Price"].astype(float)
+    #create THBprice from calculation
     final_df['THBPrice'] = final_df['Price'] * final_df['conversion_rate']
+    #drop un used column
     final_df = final_df.drop("date", axis=1)
+    #save as csv
     final_df.to_csv("/home/airflow/data/result.csv", index=False)
         
 
